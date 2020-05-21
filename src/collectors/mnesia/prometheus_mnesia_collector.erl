@@ -106,6 +106,14 @@ collect_mf(_Registry, Callback) ->
     true ->
       EnabledMetrics = enabled_metrics(),
       Metrics = metrics(EnabledMetrics),
+      prometheus_counter:declare([{name, held_locks_dist},
+                            {help, "Held Locks Tablewise Activity Distribution."},
+                            {labels, [lock_entity, target, type]}
+                            ]),
+      prometheus_counter:declare([{name, lock_queue_dist},
+                            {help, "Lock Queue Tablewise Activity Distribution."},
+                            {labels, [table, type]}
+                            ]),
       [add_metric_family(Metric, Callback)
        || {Name, _, _, _}=Metric <- Metrics, metric_enabled(Name, EnabledMetrics)];
     false -> ok
@@ -125,12 +133,30 @@ metrics(EnabledMetrics) ->
   TablewiseMemoryUsage = get_tablewise_memory_usage(),
   TablewiseSize = get_tablewise_size(),
 
+  HeldLocks = mnesia:system_info(held_locks),
+  lists:foreach(
+    fun({{LockEntity, Target}, Type, _}) ->
+      Target1 =
+        case Target of
+          '______WHOLETABLE_____' -> whole_table;
+          _ -> single
+        end,
+        prometheus_counter:inc(held_locks_dist, [LockEntity, Target1, Type])
+    end,
+  HeldLocks),
+  LockQueue = mnesia:system_info(lock_queue),
+  lists:foreach(
+    fun({{Table, _Key}, Type, _Pid, _, _}) ->
+      prometheus_counter:inc(lock_queue_dist, [Table, Type])
+    end,
+  LockQueue),
+
   [{held_locks, gauge,
     "Number of held locks.",
-    fun() -> ets:info(mnesia_held_locks, size) end},
+    fun() -> length(HeldLocks) end},
    {lock_queue, gauge,
     "Number of transactions waiting for a lock.",
-    fun() -> ets:info(mnesia_lock_queue, size) end},
+    fun() -> length(LockQueue) end},
    {transaction_participants, gauge,
     "Number of participant transactions.",
     fun() -> Participants end},
