@@ -4,11 +4,11 @@
 
 Copyright (c) 2016,2017 Ilya Khaprov <<i.khaprov@gmail.com>>.
 
-__Version:__ 4.6.0
+__Version:__ 4.11.0
 
 [![Hex.pm](https://img.shields.io/hexpm/v/prometheus.svg?maxAge=2592000?style=plastic)](https://hex.pm/packages/prometheus)
 [![Hex.pm](https://img.shields.io/hexpm/dt/prometheus.svg?maxAge=2592000)](https://hex.pm/packages/prometheus)
-[![Build Status](https://travis-ci.org/deadtrickster/prometheus.erl.svg?branch=version-3)](https://travis-ci.org/deadtrickster/prometheus.erl)
+[![Build Status](https://img.shields.io/github/workflow/status/deadtrickster/prometheus.erl/CI?style=flat)](https://github.com/deadtrickster/prometheus.erl/actions/workflows/main.yml)
 [![Coverage Status](https://coveralls.io/repos/github/deadtrickster/prometheus.erl/badge.svg?branch=master)](https://coveralls.io/github/deadtrickster/prometheus.erl?branch=master)
 
 [Prometheus.io](https://prometheus.io) monitoring system and time series database client in Erlang.
@@ -284,6 +284,7 @@ MIT
 <tr><td><a href="prometheus_mnesia_collector.md" class="module">prometheus_mnesia_collector</a></td></tr>
 <tr><td><a href="prometheus_model_helpers.md" class="module">prometheus_model_helpers</a></td></tr>
 <tr><td><a href="prometheus_protobuf_format.md" class="module">prometheus_protobuf_format</a></td></tr>
+<tr><td><a href="prometheus_quantile_summary.md" class="module">prometheus_quantile_summary</a></td></tr>
 <tr><td><a href="prometheus_registry.md" class="module">prometheus_registry</a></td></tr>
 <tr><td><a href="prometheus_summary.md" class="module">prometheus_summary</a></td></tr>
 <tr><td><a href="prometheus_text_format.md" class="module">prometheus_text_format</a></td></tr>

@@ -3,9 +3,10 @@ defmodule Prometheus.Mixfile do
 
   def project do
     [app: :prometheus,
-     version: "4.6.0",
+     version: "4.11.0",
      description: description(),
-     package: package()]
+     package: package(),
+     deps: deps()]
   end
 
   defp description do
@@ -31,5 +32,11 @@ defmodule Prometheus.Mixfile do
               "Process info Collector" => "https://hex.pm/packages/prometheus_process_collector",
               "Prometheus.ex" => "https://hex.pm/packages/prometheus_ex"},
      files: ["mix.exs", "bin", "src", "include", "README.md", "LICENSE", "rebar.config"]]
+  end
+
+  defp deps do
+    [
+      {:quantile_estimator, "~> 0.2.1"}
+    ]
   end
 end

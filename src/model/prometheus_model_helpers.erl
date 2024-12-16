@@ -25,6 +25,7 @@
          summary_metric/1,
          summary_metric/2,
          summary_metric/3,
+         summary_metric/4,
          histogram_metrics/1,
          histogram_metric/1,
          histogram_metric/3,
@@ -49,7 +50,8 @@
 -type label_name() :: term().
 -type label_value() :: term().
 -type label() :: {label_name(), label_value()}.
--type labels() :: [label()].
+-type pre_rendered_labels() :: binary().
+-type labels() :: [label()] | pre_rendered_labels().
 -type value() :: float() | integer() | undefined | infinity.
 -type prometheus_boolean() :: boolean() | number() | list() | undefined.
 -type gauge() :: value() | {value()} | {labels(), value()}.
@@ -75,21 +77,23 @@
 %% If `Name' is a list, looks for atoms and converts them to binaries.
 %% Why iolists do not support atoms?
 %% @end
--spec metric_name(Name) -> iolist() when
+-spec metric_name(Name) -> binary() when
     Name :: atom() | binary() | list(char() | iolist() | binary() | atom()).
 metric_name(Name) ->
   case Name of
     _ when is_atom(Name) ->
       atom_to_binary(Name, utf8);
     _ when is_list(Name) ->
-      [
-       case is_atom(P) of
-         true -> atom_to_binary(P, utf8);
-         _ -> P
-       end
-       || P <- Name];
-    _ ->
-      Name
+          lists:foldl(fun
+                        (A, Acc) when is_atom(A) ->
+                          <<Acc/binary, (atom_to_binary(A, utf8))/binary>>;
+                        (C, Acc) when is_integer(C) ->
+                          <<Acc/binary, C:8>>;
+                        (Str, Acc) ->
+                          <<Acc/binary, (iolist_to_binary(Str))/binary>>
+                      end, <<>>, Name);
+    _ when is_binary(Name) ->
+          Name
   end.
 
 %% @doc
@@ -252,23 +256,36 @@ summary_metrics(Specs) -> lists:map(fun summary_metric/1, Specs).
 %% @end
 -spec summary_metric(Summary) -> prometheus_model:'Metric'() when
     Summary :: summary().
-summary_metric({Labels, Count, Sum}) -> summary_metric(Labels, Count, Sum);
-summary_metric({Count, Sum})         -> summary_metric([], Count, Sum).
+summary_metric({Labels, Count, Sum, Quantiles}) when is_list(Quantiles) ->
+  summary_metric(Labels, Count, Sum, Quantiles);
+summary_metric({Count, Sum, Quantiles}) when is_list(Quantiles) ->
+  summary_metric([], Count, Sum, Quantiles);
+summary_metric({Labels, Count, Sum}) ->
+  summary_metric(Labels, Count, Sum);
+summary_metric({Count, Sum}) ->
+  summary_metric([], Count, Sum).
 
 %% @equiv summary_metric([], Count, Sum)
-summary_metric(Count, Sum) -> summary_metric([], Count, Sum).
+summary_metric(Count, Sum) ->
+  summary_metric([], Count, Sum).
+
+%% @equiv summary_metric([], Count, Sum, [])
+summary_metric(Labels, Count, Sum) ->
+  summary_metric(Labels, Count, Sum, []).
 
 %% @doc
 %% Creates summary metric with `Labels', `Count' and `Sum'.
 %% @end
--spec summary_metric(Labels, Count, Sum) -> prometheus_model:'Metric'() when
+-spec summary_metric(Labels, Count, Sum, Quantiles) -> prometheus_model:'Metric'() when
     Labels :: labels(),
     Count  :: non_neg_integer(),
-    Sum    :: value().
-summary_metric(Labels, Count, Sum) ->
+    Sum    :: value(),
+    Quantiles :: list().
+summary_metric(Labels, Count, Sum, Quantiles) ->
   #'Metric'{label   = label_pairs(Labels),
             summary = #'Summary'{sample_count = Count,
-                                 sample_sum   = Sum}}.
+                                 sample_sum   = Sum,
+                                 quantile     = [#'Quantile'{quantile = QN, value = QV} || {QN, QV} <- Quantiles]}}.
 
 %% @doc Equivalent to
 %% {@link histogram_metric/1. `lists:map(fun histogram_metric/1, Specs)'}.
@@ -312,6 +329,18 @@ histogram_metric(Labels, Buckets, Count, Sum) ->
 %% @doc Equivalent to
 %% {@link label_pair/1. `lists:map(fun label_pair/1, Labels)'}.
 %% @end
+%%
+%% NB `is_binary' clause here is for a special optimization for text
+%% format only: client code can pre-generate final labels string,
+%% e.g. when it knows when character escaping is not needed. This
+%% avoids direct performance cost of character escaping, and also
+%% reduces garabage collection pressure, as intermediate lists of
+%% tuples/records are not created at all. This optimization is used by
+%% RabbitMQ prometheus plugin (which calls `create_mf/5', and it ends
+%% here).
+%% WARNING Works only for text format, protobuf format export will
+%% fail with an error.
+label_pairs(B) when is_binary(B) -> B;
 label_pairs(Labels) -> lists:map(fun label_pair/1, Labels).
 
 %% @doc
